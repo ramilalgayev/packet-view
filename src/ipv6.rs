@@ -1,18 +1,18 @@
 use crate::PacketError;
 
-#[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Ipv6Header<'a> {
     bytes: &'a [u8],
 }
 
 impl<'a> Ipv6Header<'a> {
-    pub const LEN: usize = 40;
+    pub const MIN_PACKAGE_LEN: usize = 40;
     pub const VERSION: u8 = 6;
 
     pub fn new(bytes: &'a [u8]) -> Result<Self, PacketError> {
-        if bytes.len() < Self::LEN {
+        if bytes.len() < Self::MIN_PACKAGE_LEN {
             return Err(PacketError::TooShort {
-                needed: Self::LEN,
+                needed: Self::MIN_PACKAGE_LEN,
                 actual: bytes.len(),
             });
         }
@@ -29,7 +29,7 @@ impl<'a> Ipv6Header<'a> {
     }
 
     pub fn as_bytes(&self) -> &'a [u8] {
-        &self.bytes[..Self::LEN]
+        &self.bytes[..Self::MIN_PACKAGE_LEN]
     }
 
     pub fn version(&self) -> u8 {
@@ -72,7 +72,7 @@ impl<'a> Ipv6Header<'a> {
     }
 
     pub fn payload(&self) -> &'a [u8] {
-        let start = Self::LEN;
+        let start = Self::MIN_PACKAGE_LEN;
         let end = core::cmp::min(start + self.payload_len() as usize, self.bytes.len());
         &self.bytes[start..end]
     }
@@ -82,59 +82,109 @@ impl<'a> Ipv6Header<'a> {
 mod tests {
     use super::*;
 
-    const IPV6: [u8; 40] = [
-        0x60, 0x12, 0x34, 0x56,
-        0x00, 0x00,
-        17,
-        64,
+    const IPV6_HEADER_LEN: usize = 40;
+
+    const IPV6_VERSION_TRAFFIC_CLASS_HIGH: u8 = 0x60; // version = 6, traffic class high nibble = 0
+    const IPV6_TRAFFIC_CLASS_LOW_FLOW_HIGH: u8 = 0x12; // traffic class low nibble = 1, flow label high nibble = 2
+    const IPV6_FLOW_LABEL_LOW: [u8; 2] = [0x34, 0x56];
+    const IPV6_PAYLOAD_LEN: [u8; 2] = 0u16.to_be_bytes();
+    const IPV6_NEXT_HEADER_UDP: u8 = 17;
+    const IPV6_HOP_LIMIT: u8 = 64;
+    const IPV6_SRC: [u8; 16] = [
         0x20, 0x01, 0x0d, 0xb8,
         0, 0, 0, 0,
         0, 0, 0, 0,
         0, 0, 0, 1,
+    ];
+    const IPV6_DST: [u8; 16] = [
         0x20, 0x01, 0x0d, 0xb8,
         0, 0, 0, 0,
         0, 0, 0, 0,
         0, 0, 0, 2,
     ];
 
+    const IPV6_HEADER: [u8; IPV6_HEADER_LEN] = [
+        IPV6_VERSION_TRAFFIC_CLASS_HIGH,
+        IPV6_TRAFFIC_CLASS_LOW_FLOW_HIGH,
+        IPV6_FLOW_LABEL_LOW[0],
+        IPV6_FLOW_LABEL_LOW[1],
+        IPV6_PAYLOAD_LEN[0],
+        IPV6_PAYLOAD_LEN[1],
+        IPV6_NEXT_HEADER_UDP,
+        IPV6_HOP_LIMIT,
+        IPV6_SRC[0],
+        IPV6_SRC[1],
+        IPV6_SRC[2],
+        IPV6_SRC[3],
+        IPV6_SRC[4],
+        IPV6_SRC[5],
+        IPV6_SRC[6],
+        IPV6_SRC[7],
+        IPV6_SRC[8],
+        IPV6_SRC[9],
+        IPV6_SRC[10],
+        IPV6_SRC[11],
+        IPV6_SRC[12],
+        IPV6_SRC[13],
+        IPV6_SRC[14],
+        IPV6_SRC[15],
+        IPV6_DST[0],
+        IPV6_DST[1],
+        IPV6_DST[2],
+        IPV6_DST[3],
+        IPV6_DST[4],
+        IPV6_DST[5],
+        IPV6_DST[6],
+        IPV6_DST[7],
+        IPV6_DST[8],
+        IPV6_DST[9],
+        IPV6_DST[10],
+        IPV6_DST[11],
+        IPV6_DST[12],
+        IPV6_DST[13],
+        IPV6_DST[14],
+        IPV6_DST[15],
+    ];
+
     #[test]
     fn parses_basic_ipv6_header() {
-        let ip = Ipv6Header::new(&IPV6).unwrap();
-        assert_eq!(ip.version(), 6);
-        assert_eq!(ip.traffic_class(), 0x01);
-        assert_eq!(ip.flow_label(), 0x23456);
-        assert_eq!(ip.payload_len(), 0);
-        assert_eq!(ip.next_header(), 17);
-        assert_eq!(ip.hop_limit(), 64);
-        assert_eq!(ip.src(), [
-            0x20, 0x01, 0x0d, 0xb8,
-            0, 0, 0, 0,
-            0, 0, 0, 0,
-            0, 0, 0, 1,
-        ]);
-        assert_eq!(ip.dst(), [
-            0x20, 0x01, 0x0d, 0xb8,
-            0, 0, 0, 0,
-            0, 0, 0, 0,
-            0, 0, 0, 2,
-        ]);
+        let header = Ipv6Header::new(&IPV6_HEADER).unwrap();
+
+        assert_eq!(header.version(), 6);
+        assert_eq!(header.traffic_class(), 0x01);
+        assert_eq!(header.flow_label(), 0x23456);
+        assert_eq!(header.payload_len(), 0);
+        assert_eq!(header.next_header(), IPV6_NEXT_HEADER_UDP);
+        assert_eq!(header.hop_limit(), IPV6_HOP_LIMIT);
+        assert_eq!(header.src(), IPV6_SRC);
+        assert_eq!(header.dst(), IPV6_DST);
+        assert_eq!(header.payload(), &[]);
     }
 
     #[test]
     fn rejects_short_ipv6_header() {
+        let short_header = &IPV6_HEADER[..IPV6_HEADER_LEN - 1];
+
         assert_eq!(
-            Ipv6Header::new(&IPV6[..39]),
-            Err(PacketError::TooShort { needed: 40, actual: 39 })
+            Ipv6Header::new(short_header),
+            Err(PacketError::TooShort {
+                needed: IPV6_HEADER_LEN,
+                actual: IPV6_HEADER_LEN - 1,
+            })
         );
     }
 
     #[test]
-    fn rejects_wrong_version() {
-        let mut bytes = IPV6;
-        bytes[0] = 0x40;
+    fn rejects_wrong_ipv6_version() {
+        let mut header_bytes = IPV6_HEADER;
+        header_bytes[0] = 0x40; // version = 4
+
         assert_eq!(
-            Ipv6Header::new(&bytes),
-            Err(PacketError::InvalidVersion { expected: 6, actual: 4 })
+            Ipv6Header::new(&header_bytes),
+            Err(PacketError::InvalidVersion {
+                expected: 6,
+                actual: 4,
+            })
         );
     }
 }

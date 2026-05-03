@@ -1,6 +1,6 @@
 use crate::PacketError;
 
-#[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Ipv4Header<'a> {
     bytes: &'a [u8],
 }
@@ -126,46 +126,113 @@ impl<'a> Ipv4Header<'a> {
 mod tests {
     use super::*;
 
-    const IPV4: [u8; 20] = [
-        0x45, 0x00, 0x00, 0x14,
-        0x12, 0x34, 0x40, 0x00,
-        64, 17, 0xab, 0xcd,
-        192, 168, 1, 10,
-        8, 8, 8, 8,
+    const IPV4_MIN_HEADER_LEN: usize = 20;
+
+    const IPV4_VERSION_IHL: u8 = 0x45;
+    const IPV4_DSCP_ECN: u8 = 0x00;
+    const IPV4_TOTAL_LEN: [u8; 2] = 20u16.to_be_bytes();
+    const IPV4_IDENTIFICATION: [u8; 2] = 0x1234u16.to_be_bytes();
+    const IPV4_FLAGS_FRAGMENT_OFFSET: [u8; 2] = 0x4000u16.to_be_bytes();
+    const IPV4_TTL: u8 = 64;
+    const IPV4_PROTOCOL_UDP: u8 = 17;
+    const IPV4_CHECKSUM: [u8; 2] = 0xabcdu16.to_be_bytes();
+    const IPV4_SRC: [u8; 4] = [192, 168, 1, 10];
+    const IPV4_DST: [u8; 4] = [8, 8, 8, 8];
+
+    const IPV4_HEADER: [u8; IPV4_MIN_HEADER_LEN] = [
+        IPV4_VERSION_IHL,
+        IPV4_DSCP_ECN,
+        IPV4_TOTAL_LEN[0],
+        IPV4_TOTAL_LEN[1],
+        IPV4_IDENTIFICATION[0],
+        IPV4_IDENTIFICATION[1],
+        IPV4_FLAGS_FRAGMENT_OFFSET[0],
+        IPV4_FLAGS_FRAGMENT_OFFSET[1],
+        IPV4_TTL,
+        IPV4_PROTOCOL_UDP,
+        IPV4_CHECKSUM[0],
+        IPV4_CHECKSUM[1],
+        IPV4_SRC[0],
+        IPV4_SRC[1],
+        IPV4_SRC[2],
+        IPV4_SRC[3],
+        IPV4_DST[0],
+        IPV4_DST[1],
+        IPV4_DST[2],
+        IPV4_DST[3],
     ];
 
     #[test]
     fn parses_basic_ipv4_header() {
-        let ip = Ipv4Header::new(&IPV4).unwrap();
-        assert_eq!(ip.version(), 4);
-        assert_eq!(ip.ihl_words(), 5);
-        assert_eq!(ip.header_len(), 20);
-        assert_eq!(ip.total_len(), 20);
-        assert_eq!(ip.identification(), 0x1234);
-        assert_eq!(ip.flags(), 0b010);
-        assert_eq!(ip.fragment_offset(), 0);
-        assert_eq!(ip.ttl(), 64);
-        assert_eq!(ip.protocol(), 17);
-        assert_eq!(ip.checksum(), 0xabcd);
-        assert_eq!(ip.src(), [192, 168, 1, 10]);
-        assert_eq!(ip.dst(), [8, 8, 8, 8]);
+        let header = Ipv4Header::new(&IPV4_HEADER).unwrap();
+
+        assert_eq!(header.version(), 4);
+        assert_eq!(header.ihl_words(), 5);
+        assert_eq!(header.header_len(), IPV4_MIN_HEADER_LEN);
+        assert_eq!(header.dscp(), 0);
+        assert_eq!(header.ecn(), 0);
+        assert_eq!(header.total_len(), 20);
+        assert_eq!(header.identification(), 0x1234);
+        assert_eq!(header.flags(), 0b010);
+        assert_eq!(header.fragment_offset(), 0);
+        assert_eq!(header.ttl(), IPV4_TTL);
+        assert_eq!(header.protocol(), IPV4_PROTOCOL_UDP);
+        assert_eq!(header.checksum(), 0xabcd);
+        assert_eq!(header.src(), IPV4_SRC);
+        assert_eq!(header.dst(), IPV4_DST);
+        assert_eq!(header.options(), &[]);
+        assert_eq!(header.payload(), &[]);
     }
 
     #[test]
     fn rejects_short_ipv4_header() {
+        let short_header = &IPV4_HEADER[..IPV4_MIN_HEADER_LEN - 1];
+
         assert_eq!(
-            Ipv4Header::new(&IPV4[..19]),
-            Err(PacketError::TooShort { needed: 20, actual: 19 })
+            Ipv4Header::new(short_header),
+            Err(PacketError::TooShort {
+                needed: IPV4_MIN_HEADER_LEN,
+                actual: IPV4_MIN_HEADER_LEN - 1,
+            })
         );
     }
 
     #[test]
-    fn rejects_wrong_version() {
-        let mut bytes = IPV4;
-        bytes[0] = 0x65;
+    fn rejects_wrong_ipv4_version() {
+        let mut header_bytes = IPV4_HEADER;
+        header_bytes[0] = 0x65; // version = 6, IHL = 5
+
         assert_eq!(
-            Ipv4Header::new(&bytes),
-            Err(PacketError::InvalidVersion { expected: 4, actual: 6 })
+            Ipv4Header::new(&header_bytes),
+            Err(PacketError::InvalidVersion {
+                expected: 4,
+                actual: 6,
+            })
+        );
+    }
+
+    #[test]
+    fn rejects_invalid_ipv4_ihl() {
+        let mut header_bytes = IPV4_HEADER;
+        header_bytes[0] = 0x44; // version = 4, IHL = 4 words / 16 bytes
+
+        assert_eq!(
+            Ipv4Header::new(&header_bytes),
+            Err(PacketError::InvalidIpv4HeaderLength { ihl_words: 4 })
+        );
+    }
+
+    #[test]
+    fn rejects_ipv4_total_len_smaller_than_header_len() {
+        let mut header_bytes = IPV4_HEADER;
+        header_bytes[2..4].copy_from_slice(&19u16.to_be_bytes());
+
+        assert_eq!(
+            Ipv4Header::new(&header_bytes),
+            Err(PacketError::InvalidIpv4TotalLength {
+                header_len: IPV4_MIN_HEADER_LEN,
+                total_len: 19,
+            })
         );
     }
 }
