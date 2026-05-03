@@ -1,15 +1,16 @@
-use crate::PacketError;
+use crate::{PacketError, PacketView, PacketViewMut};
+use crate::view::PacketSpec;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub struct Ipv6Header<'a> {
-    bytes: &'a [u8],
-}
+pub enum Ipv6 {}
 
-impl<'a> Ipv6Header<'a> {
+impl Ipv6 {
     pub const MIN_PACKAGE_LEN: usize = 40;
     pub const VERSION: u8 = 6;
+}
 
-    pub fn new(bytes: &'a [u8]) -> Result<Self, PacketError> {
+impl PacketSpec for Ipv6 {
+    fn validate(bytes: &[u8]) -> Result<(), PacketError> {
         if bytes.len() < Self::MIN_PACKAGE_LEN {
             return Err(PacketError::TooShort {
                 needed: Self::MIN_PACKAGE_LEN,
@@ -25,67 +26,106 @@ impl<'a> Ipv6Header<'a> {
             });
         }
 
-        Ok(Self { bytes })
+        Ok(())
     }
 
-    pub fn as_bytes(&self) -> &'a [u8] {
-        &self.bytes[..Self::MIN_PACKAGE_LEN]
+    fn header_len(_: &[u8]) -> usize {
+        Self::MIN_PACKAGE_LEN
+    }
+}
+
+pub trait Ipv6Packet {
+    fn bytes(&self) -> &[u8];
+
+    fn version(&self) -> u8 {
+        self.bytes()[0] >> 4
     }
 
-    pub fn version(&self) -> u8 {
-        self.bytes[0] >> 4
+    fn traffic_class(&self) -> u8 {
+        ((self.bytes()[0] & 0x0f) << 4) | (self.bytes()[1] >> 4)
     }
 
-    pub fn traffic_class(&self) -> u8 {
-        ((self.bytes[0] & 0x0f) << 4) | (self.bytes[1] >> 4)
-    }
-
-    pub fn flow_label(&self) -> u32 {
-        let b1 = (self.bytes[1] & 0x0f) as u32;
-        let b2 = self.bytes[2] as u32;
-        let b3 = self.bytes[3] as u32;
+    fn flow_label(&self) -> u32 {
+        let b1 = (self.bytes()[1] & 0x0f) as u32;
+        let b2 = self.bytes()[2] as u32;
+        let b3 = self.bytes()[3] as u32;
         (b1 << 16) | (b2 << 8) | b3
     }
 
-    pub fn payload_len(&self) -> u16 {
-        u16::from_be_bytes([self.bytes[4], self.bytes[5]])
+    fn payload_len(&self) -> u16 {
+        u16::from_be_bytes([self.bytes()[4], self.bytes()[5]])
     }
 
-    pub fn next_header(&self) -> u8 {
-        self.bytes[6]
+    fn next_header(&self) -> u8 {
+        self.bytes()[6]
     }
 
-    pub fn hop_limit(&self) -> u8 {
-        self.bytes[7]
+    fn hop_limit(&self) -> u8 {
+        self.bytes()[7]
     }
 
-    pub fn src(&self) -> [u8; 16] {
+    fn src(&self) -> [u8; 16] {
         let mut out = [0u8; 16];
-        out.copy_from_slice(&self.bytes[8..24]);
+        out.copy_from_slice(&self.bytes()[8..24]);
         out
     }
 
-    pub fn dst(&self) -> [u8; 16] {
+    fn dst(&self) -> [u8; 16] {
         let mut out = [0u8; 16];
-        out.copy_from_slice(&self.bytes[24..40]);
+        out.copy_from_slice(&self.bytes()[24..40]);
         out
     }
 
-    pub fn payload(&self) -> &'a [u8] {
-        let start = Self::MIN_PACKAGE_LEN;
-        let end = core::cmp::min(start + self.payload_len() as usize, self.bytes.len());
-        &self.bytes[start..end]
+    fn payload(&self) -> &[u8] {
+        let start = Ipv6::MIN_PACKAGE_LEN;
+        let end = core::cmp::min(start + self.payload_len() as usize, self.bytes().len());
+        &self.bytes()[start..end]
+    }
+}
+
+impl<'a> Ipv6Packet for PacketView<'a, Ipv6> {
+    fn bytes(&self) -> &[u8] {
+        self.bytes()
+    }
+}
+
+impl<'a> Ipv6Packet for PacketViewMut<'a, Ipv6> {
+    fn bytes(&self) -> &[u8] {
+        self.bytes()
+    }
+}
+
+impl<'a> PacketViewMut<'a, Ipv6> {
+    pub fn set_payload_len(&mut self, value: u16) {
+        self.bytes_mut()[4..6].copy_from_slice(&value.to_be_bytes());
+    }
+
+    pub fn set_next_header(&mut self, value: u8) {
+        self.bytes_mut()[6] = value;
+    }
+
+    pub fn set_hop_limit(&mut self, value: u8) {
+        self.bytes_mut()[7] = value;
+    }
+
+    pub fn set_src(&mut self, value: [u8; 16]) {
+        self.bytes_mut()[8..24].copy_from_slice(&value);
+    }
+
+    pub fn set_dst(&mut self, value: [u8; 16]) {
+        self.bytes_mut()[24..40].copy_from_slice(&value);
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::{Ipv6Header, Ipv6HeaderMut};
 
-    const IPV6_HEADER_LEN: usize = 40;
+    const IPV6_MIN_PACKAGE_LEN: usize = 40;
 
-    const IPV6_VERSION_TRAFFIC_CLASS_HIGH: u8 = 0x60; // version = 6, traffic class high nibble = 0
-    const IPV6_TRAFFIC_CLASS_LOW_FLOW_HIGH: u8 = 0x12; // traffic class low nibble = 1, flow label high nibble = 2
+    const IPV6_VERSION_TRAFFIC_CLASS_HIGH: u8 = 0x60;
+    const IPV6_TRAFFIC_CLASS_LOW_FLOW_HIGH: u8 = 0x12;
     const IPV6_FLOW_LABEL_LOW: [u8; 2] = [0x34, 0x56];
     const IPV6_PAYLOAD_LEN: [u8; 2] = 0u16.to_be_bytes();
     const IPV6_NEXT_HEADER_UDP: u8 = 17;
@@ -103,47 +143,21 @@ mod tests {
         0, 0, 0, 2,
     ];
 
-    const IPV6_HEADER: [u8; IPV6_HEADER_LEN] = [
+    const IPV6_HEADER: [u8; IPV6_MIN_PACKAGE_LEN] = [
         IPV6_VERSION_TRAFFIC_CLASS_HIGH,
         IPV6_TRAFFIC_CLASS_LOW_FLOW_HIGH,
-        IPV6_FLOW_LABEL_LOW[0],
-        IPV6_FLOW_LABEL_LOW[1],
-        IPV6_PAYLOAD_LEN[0],
-        IPV6_PAYLOAD_LEN[1],
+        IPV6_FLOW_LABEL_LOW[0], IPV6_FLOW_LABEL_LOW[1],
+        IPV6_PAYLOAD_LEN[0], IPV6_PAYLOAD_LEN[1],
         IPV6_NEXT_HEADER_UDP,
         IPV6_HOP_LIMIT,
-        IPV6_SRC[0],
-        IPV6_SRC[1],
-        IPV6_SRC[2],
-        IPV6_SRC[3],
-        IPV6_SRC[4],
-        IPV6_SRC[5],
-        IPV6_SRC[6],
-        IPV6_SRC[7],
-        IPV6_SRC[8],
-        IPV6_SRC[9],
-        IPV6_SRC[10],
-        IPV6_SRC[11],
-        IPV6_SRC[12],
-        IPV6_SRC[13],
-        IPV6_SRC[14],
-        IPV6_SRC[15],
-        IPV6_DST[0],
-        IPV6_DST[1],
-        IPV6_DST[2],
-        IPV6_DST[3],
-        IPV6_DST[4],
-        IPV6_DST[5],
-        IPV6_DST[6],
-        IPV6_DST[7],
-        IPV6_DST[8],
-        IPV6_DST[9],
-        IPV6_DST[10],
-        IPV6_DST[11],
-        IPV6_DST[12],
-        IPV6_DST[13],
-        IPV6_DST[14],
-        IPV6_DST[15],
+        IPV6_SRC[0], IPV6_SRC[1], IPV6_SRC[2], IPV6_SRC[3],
+        IPV6_SRC[4], IPV6_SRC[5], IPV6_SRC[6], IPV6_SRC[7],
+        IPV6_SRC[8], IPV6_SRC[9], IPV6_SRC[10], IPV6_SRC[11],
+        IPV6_SRC[12], IPV6_SRC[13], IPV6_SRC[14], IPV6_SRC[15],
+        IPV6_DST[0], IPV6_DST[1], IPV6_DST[2], IPV6_DST[3],
+        IPV6_DST[4], IPV6_DST[5], IPV6_DST[6], IPV6_DST[7],
+        IPV6_DST[8], IPV6_DST[9], IPV6_DST[10], IPV6_DST[11],
+        IPV6_DST[12], IPV6_DST[13], IPV6_DST[14], IPV6_DST[15],
     ];
 
     #[test]
@@ -162,14 +176,34 @@ mod tests {
     }
 
     #[test]
+    fn edits_ipv6_header_without_losing_read_api() {
+        let mut bytes = IPV6_HEADER;
+        let mut header = Ipv6HeaderMut::new(&mut bytes).unwrap();
+        let new_src = [0x20, 0x01, 0x0d, 0xb8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3];
+        let new_dst = [0x20, 0x01, 0x0d, 0xb8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4];
+
+        header.set_payload_len(32);
+        header.set_next_header(6);
+        header.set_hop_limit(128);
+        header.set_src(new_src);
+        header.set_dst(new_dst);
+
+        assert_eq!(header.payload_len(), 32);
+        assert_eq!(header.next_header(), 6);
+        assert_eq!(header.hop_limit(), 128);
+        assert_eq!(header.src(), new_src);
+        assert_eq!(header.dst(), new_dst);
+    }
+
+    #[test]
     fn rejects_short_ipv6_header() {
-        let short_header = &IPV6_HEADER[..IPV6_HEADER_LEN - 1];
+        let short_header = &IPV6_HEADER[..IPV6_MIN_PACKAGE_LEN - 1];
 
         assert_eq!(
             Ipv6Header::new(short_header),
             Err(PacketError::TooShort {
-                needed: IPV6_HEADER_LEN,
-                actual: IPV6_HEADER_LEN - 1,
+                needed: IPV6_MIN_PACKAGE_LEN,
+                actual: IPV6_MIN_PACKAGE_LEN - 1,
             })
         );
     }
@@ -177,7 +211,7 @@ mod tests {
     #[test]
     fn rejects_wrong_ipv6_version() {
         let mut header_bytes = IPV6_HEADER;
-        header_bytes[0] = 0x40; // version = 4
+        header_bytes[0] = 0x40;
 
         assert_eq!(
             Ipv6Header::new(&header_bytes),
