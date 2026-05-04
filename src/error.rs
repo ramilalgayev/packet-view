@@ -15,6 +15,7 @@ pub enum PacketError {
         header_len: usize,
         total_len: usize,
     },
+    FragmentedPacket,
 }
 
 impl core::fmt::Display for PacketError {
@@ -28,6 +29,8 @@ impl core::fmt::Display for PacketError {
                 write!(f, "invalid IPv4 IHL: {ihl_words} (minimum is 5)"),
             Self::InvalidIpv4TotalLength { header_len, total_len } =>
                 write!(f, "IPv4 total_len {total_len} is smaller than header_len {header_len}"),
+            Self::FragmentedPacket =>
+                write!(f, "packet is a fragment — payload is incomplete"),
         }
     }
 }
