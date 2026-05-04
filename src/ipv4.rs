@@ -5,15 +5,15 @@ use crate::view::PacketSpec;
 pub enum Ipv4 {}
 
 impl Ipv4 {
-    pub const MIN_PACKAGE_LEN: usize = 20;
+    pub const MIN_PACKET_LEN: usize = 20;
     pub const VERSION: u8 = 4;
 }
 
 impl PacketSpec for Ipv4 {
     fn validate(bytes: &[u8]) -> Result<(), PacketError> {
-        if bytes.len() < Self::MIN_PACKAGE_LEN {
+        if bytes.len() < Self::MIN_PACKET_LEN {
             return Err(PacketError::TooShort {
-                needed: Self::MIN_PACKAGE_LEN,
+                needed: Self::MIN_PACKET_LEN,
                 actual: bytes.len(),
             });
         }
@@ -51,6 +51,10 @@ impl PacketSpec for Ipv4 {
     }
 
     fn header_len(bytes: &[u8]) -> usize {
+        debug_assert!(
+            !bytes.is_empty(),
+            "header_len called on empty slice; call validate() first"
+        );
         ((bytes[0] & 0x0f) as usize) * 4
     }
 }
@@ -116,7 +120,7 @@ pub trait Ipv4Packet {
     }
 
     fn options(&self) -> &[u8] {
-        &self.bytes()[Ipv4::MIN_PACKAGE_LEN..self.header_len()]
+        &self.bytes()[Ipv4::MIN_PACKET_LEN..self.header_len()]
     }
 
     fn payload(&self) -> &[u8] {
@@ -129,35 +133,35 @@ pub trait Ipv4Packet {
 
 impl<'a> Ipv4Packet for PacketView<'a, Ipv4> {
     fn bytes(&self) -> &[u8] {
-        self.bytes()
+        self.as_slice()
     }
 }
 
 impl<'a> Ipv4Packet for PacketViewMut<'a, Ipv4> {
     fn bytes(&self) -> &[u8] {
-        self.bytes()
+        self.as_slice()
     }
 }
 
 impl<'a> PacketViewMut<'a, Ipv4> {
     pub fn set_ttl(&mut self, value: u8) {
-        self.bytes_mut()[8] = value;
+        self.as_slice_mut()[8] = value;
     }
 
     pub fn set_protocol(&mut self, value: u8) {
-        self.bytes_mut()[9] = value;
+        self.as_slice_mut()[9] = value;
     }
 
     pub fn set_checksum(&mut self, value: u16) {
-        self.bytes_mut()[10..12].copy_from_slice(&value.to_be_bytes());
+        self.as_slice_mut()[10..12].copy_from_slice(&value.to_be_bytes());
     }
 
     pub fn set_src(&mut self, value: [u8; 4]) {
-        self.bytes_mut()[12..16].copy_from_slice(&value);
+        self.as_slice_mut()[12..16].copy_from_slice(&value);
     }
 
     pub fn set_dst(&mut self, value: [u8; 4]) {
-        self.bytes_mut()[16..20].copy_from_slice(&value);
+        self.as_slice_mut()[16..20].copy_from_slice(&value);
     }
 }
 

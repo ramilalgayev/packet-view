@@ -1,10 +1,14 @@
 #![no_std]
 #![forbid(unsafe_code)]
 
+#[cfg(feature = "std")]
+extern crate std;
+
 pub mod error;
 pub mod view;
 pub mod ipv4;
 pub mod ipv6;
+pub mod ethernet;
 
 pub use error::PacketError;
 pub use view::{PacketView, PacketViewMut};
@@ -18,7 +22,7 @@ pub type Ipv6HeaderMut<'a> = PacketViewMut<'a, Ipv6>;
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    //use super::*;
 
     #[test]
     fn it_works() {

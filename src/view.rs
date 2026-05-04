@@ -21,7 +21,7 @@ impl<'a, P: PacketSpec> PacketView<'a, P> {
         })
     }
 
-    pub fn bytes(&self) -> &'a [u8] {
+    pub fn as_slice(&self) -> &'a [u8] {
         self.bytes
     }
 
@@ -45,11 +45,11 @@ impl<'a, P: PacketSpec> PacketViewMut<'a, P> {
         })
     }
 
-    pub fn bytes(&self) -> &[u8] {
+    pub fn as_slice(&self) -> & [u8] {
         self.bytes
     }
 
-    pub fn bytes_mut(&mut self) -> &mut [u8] {
+    pub fn as_slice_mut(&mut self) -> & mut [u8] {
         self.bytes
     }
 

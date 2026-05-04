@@ -1,19 +1,132 @@
 use crate::{PacketError, PacketView, PacketViewMut};
 use crate::view::PacketSpec;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum NextHeaderType {
+    BasicIPv6Header,                        // Null
+    HopByHopOptions,                        // 0
+    RoutingHeader,                          // 43
+    FragmentHeader,                         // 44
+    AuthenticationHeader,                   // 51
+    EncapsulationSecurityPayloadHeader,     // 50
+    DestinationOptions,                     // 60
+    MobilityHeader,                         // 135
+    NoNextHeader,                           // 59
+    // Upper layer
+    TCP,                                    // 6
+    UDP,                                    // 17
+    ICMPv6,                                 // 58
+    // Default
+    Unknown(u8),
+}
+
+impl From<u8> for NextHeaderType {
+    fn from(value: u8) -> Self {
+        match value {
+            0 => Self::HopByHopOptions,
+            6 => Self::TCP,
+            17 => Self::UDP,
+            43 => Self::RoutingHeader,
+            44 => Self::FragmentHeader,
+            50 => Self::EncapsulationSecurityPayloadHeader,
+            51 => Self::AuthenticationHeader,
+            58 => Self::ICMPv6,
+            59 => Self::NoNextHeader,
+            60 => Self::DestinationOptions,
+            135 => Self::MobilityHeader,
+            other => Self::Unknown(other),
+        }
+    }
+}
+
+impl NextHeaderType {
+    pub fn is_extension(self) -> bool {
+        !matches!(self, Self::Unknown(_))
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct NextHeader<'a> {
+    pub kind: NextHeaderType,
+    bytes: &'a [u8],
+}
+
+impl<'a> NextHeader<'a> {
+    pub fn next_header(&self) -> u8 {
+        self.bytes[0]
+    }
+
+    pub fn len_bytes(&self) -> usize {
+        (self.bytes[1] as usize + 1) * 8
+    }
+
+    pub fn data(&self) -> &'a [u8] {
+        &self.bytes[2..self.len_bytes()]
+    }
+}
+
+pub struct NextHeaders<'a> {
+    remaining: &'a [u8],
+    next: u8,
+    errored: bool,
+}
+
+impl<'a> Iterator for NextHeaders<'a> {
+    type Item = Result<NextHeader<'a>, PacketError>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.errored {
+            return None;
+        }
+
+        let kind = NextHeaderType::from(self.next);
+        if !kind.is_extension() {
+            return None; // we've reached the payload protocol, stop
+        }
+
+        if self.remaining.len() < 8 {
+            self.errored = true;
+            return Some(Err(PacketError::TooShort {
+                needed: 8,
+                actual: self.remaining.len(),
+            }));
+        }
+
+        let len = (self.remaining[1] as usize + 1) * 8;
+
+        if self.remaining.len() < len {
+            self.errored = true;
+            return Some(Err(PacketError::TooShort {
+                needed: len,
+                actual: self.remaining.len(),
+            }));
+        }
+
+        let header = NextHeader {
+            kind,
+            bytes: &self.remaining[..len],
+        };
+
+        self.next = self.remaining[0]; // next_header field of current header
+        self.remaining = &self.remaining[len..];
+
+        Some(Ok(header))
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Ipv6 {}
 
 impl Ipv6 {
-    pub const MIN_PACKAGE_LEN: usize = 40;
+    pub const MIN_PACKET_LEN: usize = 40;
     pub const VERSION: u8 = 6;
 }
 
 impl PacketSpec for Ipv6 {
     fn validate(bytes: &[u8]) -> Result<(), PacketError> {
-        if bytes.len() < Self::MIN_PACKAGE_LEN {
+        if bytes.len() < Self::MIN_PACKET_LEN {
             return Err(PacketError::TooShort {
-                needed: Self::MIN_PACKAGE_LEN,
+                needed: Self::MIN_PACKET_LEN,
                 actual: bytes.len(),
             });
         }
@@ -30,7 +143,7 @@ impl PacketSpec for Ipv6 {
     }
 
     fn header_len(_: &[u8]) -> usize {
-        Self::MIN_PACKAGE_LEN
+        Self::MIN_PACKET_LEN
     }
 }
 
@@ -60,6 +173,33 @@ pub trait Ipv6Packet {
         self.bytes()[6]
     }
 
+    fn extension_headers(&self) -> NextHeaders<'_> {
+        NextHeaders {
+            remaining: &self.bytes()[Ipv6::MIN_PACKET_LEN..],
+            next: self.next_header(),
+            errored: false,
+        }
+    }
+
+    /// Walks the extension header chain and returns the upper-layer protocol byte.
+    /// Returns None if the chain is malformed.
+    fn upper_layer_protocol(&self) -> Option<u8> {
+        let mut next = self.next_header();
+        let mut remaining = &self.bytes()[Ipv6::MIN_PACKET_LEN..];
+
+        loop {
+            let kind = NextHeaderType::from(next);
+            if !kind.is_extension() {
+                return Some(next);
+            }
+            if remaining.len() < 8 { return None; }
+            let len = (remaining[1] as usize + 1) * 8;
+            if remaining.len() < len { return None; }
+            next = remaining[0];
+            remaining = &remaining[len..];
+        }
+    }
+
     fn hop_limit(&self) -> u8 {
         self.bytes()[7]
     }
@@ -77,7 +217,7 @@ pub trait Ipv6Packet {
     }
 
     fn payload(&self) -> &[u8] {
-        let start = Ipv6::MIN_PACKAGE_LEN;
+        let start = Ipv6::MIN_PACKET_LEN;
         let end = core::cmp::min(start + self.payload_len() as usize, self.bytes().len());
         &self.bytes()[start..end]
     }
@@ -85,35 +225,35 @@ pub trait Ipv6Packet {
 
 impl<'a> Ipv6Packet for PacketView<'a, Ipv6> {
     fn bytes(&self) -> &[u8] {
-        self.bytes()
+        self.as_slice()
     }
 }
 
 impl<'a> Ipv6Packet for PacketViewMut<'a, Ipv6> {
     fn bytes(&self) -> &[u8] {
-        self.bytes()
+        self.as_slice()
     }
 }
 
 impl<'a> PacketViewMut<'a, Ipv6> {
     pub fn set_payload_len(&mut self, value: u16) {
-        self.bytes_mut()[4..6].copy_from_slice(&value.to_be_bytes());
+        self.as_slice_mut()[4..6].copy_from_slice(&value.to_be_bytes());
     }
 
     pub fn set_next_header(&mut self, value: u8) {
-        self.bytes_mut()[6] = value;
+        self.as_slice_mut()[6] = value;
     }
 
     pub fn set_hop_limit(&mut self, value: u8) {
-        self.bytes_mut()[7] = value;
+        self.as_slice_mut()[7] = value;
     }
 
     pub fn set_src(&mut self, value: [u8; 16]) {
-        self.bytes_mut()[8..24].copy_from_slice(&value);
+        self.as_slice_mut()[8..24].copy_from_slice(&value);
     }
 
     pub fn set_dst(&mut self, value: [u8; 16]) {
-        self.bytes_mut()[24..40].copy_from_slice(&value);
+        self.as_slice_mut()[24..40].copy_from_slice(&value);
     }
 }
 
