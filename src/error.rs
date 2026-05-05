@@ -16,6 +16,7 @@ pub enum PacketError {
         total_len: usize,
     },
     FragmentedPacket,
+    InvalidChecksum { expected: u16, actual: u16 }
 }
 
 impl core::fmt::Display for PacketError {
@@ -31,6 +32,8 @@ impl core::fmt::Display for PacketError {
                 write!(f, "IPv4 total_len {total_len} is smaller than header_len {header_len}"),
             Self::FragmentedPacket =>
                 write!(f, "packet is a fragment — payload is incomplete"),
+            Self::InvalidChecksum { expected, actual } =>
+                write!(f, "invalid checksum: expected {expected:#06x}, got {actual:#06x}"),
         }
     }
 }

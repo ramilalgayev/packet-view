@@ -9,6 +9,7 @@ pub mod view;
 pub mod ipv4;
 pub mod ipv6;
 pub mod ethernet;
+pub mod checksum;
 
 pub use error::PacketError;
 pub use view::{PacketView, PacketViewMut};
