@@ -17,12 +17,14 @@ pub fn ones_complement_sum(bytes: &[u8], checksum_offset: Option<usize>) -> u16 
             "checksum_offset {offset} is out of bounds for slice of len {}",
             bytes.len()
         );
-        sum -= u32::from_be_bytes([0, 0, bytes[offset], bytes[offset + 1]]);
+        sum = sum.wrapping_sub(
+            u16::from_be_bytes([bytes[offset], bytes[offset + 1]]) as u32
+        );
     }
 
-    let low = (sum & 0xffff) as u16;
-    let high = (sum >> 16) as u16;
-    low.wrapping_add(high)  
+    let sum = (sum & 0xffff).wrapping_add(sum >> 16);
+    let sum = (sum & 0xffff).wrapping_add(sum >> 16);
+    sum as u16 
 }
 
 // Returns true if the checksum over `bytes` is valid.
