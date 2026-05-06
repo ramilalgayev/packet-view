@@ -185,10 +185,6 @@ impl<'a> PacketViewMut<'a, Ipv4> {
     }
 
     pub fn compute_and_set_checksum(&mut self) {
-        // zero out the checksum field first
-        self.as_slice_mut()[10] = 0;
-        self.as_slice_mut()[11] = 0;
-
         let header_len = self.header_len();
         let checksum = checksum::compute(&self.as_slice()[..header_len], 10);
         self.set_checksum(checksum);
@@ -346,7 +342,7 @@ fn new_verified_accepts_valid_checksum() {
     #[test]
     fn new_verified_rejects_invalid_checksum() {
         let mut bytes = IPV4_HEADER_VALID_CHECKSUM;
-        bytes[10] = 0xde; // corrupt the checksum
+        bytes[10] = 0xde;
         bytes[11] = 0xad;
     
         assert_eq!(
@@ -360,22 +356,19 @@ fn new_verified_accepts_valid_checksum() {
 
     #[test]
     fn new_accepts_invalid_checksum_without_verifying() {
-        // new() must never touch the checksum — 0xabcd is wrong but new() passes
         assert!(Ipv4Header::new(&IPV4_HEADER).is_ok());
     }
 
     #[test]
     fn compute_and_set_checksum_produces_valid_header() {
-        // Start from the header with the bad checksum, fix it, verify it
         let mut bytes = IPV4_HEADER_VALID_CHECKSUM;
-        bytes[10] = 0xde; // corrupt first
+        bytes[10] = 0xde;
         bytes[11] = 0xad;
 
         let mut header = Ipv4HeaderMut::new(&mut bytes).unwrap();
         header.compute_and_set_checksum();
 
         assert_eq!(header.checksum(), IPV4_VALID_CHECKSUM);
-        // Also verify the whole header passes new_verified
         assert!(Ipv4Header::new_verified(&bytes).is_ok());
     }
 
@@ -384,15 +377,12 @@ fn new_verified_accepts_valid_checksum() {
         let mut bytes = IPV4_HEADER_VALID_CHECKSUM;
         let mut header = Ipv4HeaderMut::new(&mut bytes).unwrap();
 
-        // mutate some fields
         header.set_ttl(128);
         header.set_src([10, 0, 0, 1]);
         header.set_dst([10, 0, 0, 2]);
 
-        // checksum is now stale — recompute
         header.compute_and_set_checksum();
 
-        // drop the mut borrow and verify immutably
         drop(header);
         assert!(Ipv4Header::new_verified(&bytes).is_ok());
     }
