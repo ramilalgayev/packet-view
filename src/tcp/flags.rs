@@ -1,0 +1,9 @@
+pub(super) const NS:  u16 = 0b1_0000_0000;
+pub(super) const CWR: u16 = 0b0_1000_0000;
+pub(super) const ECE: u16 = 0b0_0100_0000;
+pub(super) const URG: u16 = 0b0_0010_0000;
+pub(super) const ACK: u16 = 0b0_0001_0000;
+pub(super) const PSH: u16 = 0b0_0000_1000;
+pub(super) const RST: u16 = 0b0_0000_0100;
+pub(super) const SYN: u16 = 0b0_0000_0010;
+pub(super) const FIN: u16 = 0b0_0000_0001;
