@@ -49,7 +49,7 @@ impl PacketSpec for Tcp {
     }
 
     fn header_len(bytes: &[u8]) -> usize {
-        debug_assert!(bytes.is_empty(), "header_len called on empty slice");
+        debug_assert!(bytes.len() > Tcp::MIN_HEADER_LEN, "header_len called on too small slice");
         (bytes[12] >> 4) as usize * 4
     }
 }
