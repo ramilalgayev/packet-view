@@ -11,6 +11,16 @@ pub mod ipv6;
 pub mod ethernet;
 pub mod checksum;
 pub mod udp;
+pub mod tcp;
+
+pub use tcp::{Tcp, TcpPacket};
+pub use tcp::{tcp_checksum_ipv4, tcp_checksum_ipv6};
+pub use tcp::options::{TcpOption, TcpOptionKind, TcpOptions};
+pub use tcp::seq::{
+    wrapping_after, wrapping_after_or_eq,
+    wrapping_before, wrapping_before_or_eq,
+    wrapping_distance,
+};
 
 pub use udp::{Udp, UdpPacket};
 pub use udp::{udp_checksum_ipv4, udp_checksum_ipv6};
@@ -20,6 +30,9 @@ pub use view::{PacketView, PacketViewMut};
 
 pub use ipv4::{Ipv4, Ipv4Packet};
 pub use ipv6::{Ipv6, Ipv6Packet};
+
+pub type TcpHeader<'a>    = PacketView<'a, Tcp>;
+pub type TcpHeaderMut<'a> = PacketViewMut<'a, Tcp>;
 
 pub type UdpHeader<'a>    = PacketView<'a, Udp>;
 pub type UdpHeaderMut<'a> = PacketViewMut<'a, Udp>;

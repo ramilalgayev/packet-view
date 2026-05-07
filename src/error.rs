@@ -21,6 +21,8 @@ pub enum PacketError {
         header_len: usize,
         actual: usize,
     },
+    InvalidTcpOptionLength { kind: u8, length: u8 },
+    InvalidTcpHeaderLength { data_offset: u8 },
 }
 
 impl core::fmt::Display for PacketError {
@@ -40,6 +42,10 @@ impl core::fmt::Display for PacketError {
                 write!(f, "invalid checksum: expected {expected:#06x}, got {actual:#06x}"),
             Self::InvalidUdpLength { header_len, actual } =>
                 write!(f, "UDP length field {actual} is smaller than header length {header_len}"),
+            Self::InvalidTcpOptionLength { kind, length } =>
+                write!(f, "TCP option kind {kind} has invalid length {length} (minimum 2)"),
+            Self::InvalidTcpHeaderLength { data_offset } =>
+                write!(f, "TCP data offset {data_offset} is too small (minimum 5)"),
         }
     }
 }
