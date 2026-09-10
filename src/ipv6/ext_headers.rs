@@ -21,18 +21,18 @@ pub enum NextHeaderType {
 impl From<u8> for NextHeaderType {
     fn from(value: u8) -> Self {
         match value {
-            0   => Self::HopByHopOptions,
-            6   => Self::TCP,
-            17  => Self::UDP,
-            43  => Self::RoutingHeader,
-            44  => Self::FragmentHeader,
-            50  => Self::EncapsulationSecurityPayloadHeader,
-            51  => Self::AuthenticationHeader,
-            58  => Self::ICMPv6,
-            59  => Self::NoNextHeader,
-            60  => Self::DestinationOptions,
+            0 => Self::HopByHopOptions,
+            6 => Self::TCP,
+            17 => Self::UDP,
+            43 => Self::RoutingHeader,
+            44 => Self::FragmentHeader,
+            50 => Self::EncapsulationSecurityPayloadHeader,
+            51 => Self::AuthenticationHeader,
+            58 => Self::ICMPv6,
+            59 => Self::NoNextHeader,
+            60 => Self::DestinationOptions,
             135 => Self::MobilityHeader,
-            n   => Self::Unknown(n),
+            n => Self::Unknown(n),
         }
     }
 }
@@ -76,12 +76,7 @@ impl<'a> FragmentHeader<'a> {
     }
 
     pub fn identification(&self) -> u32 {
-        u32::from_be_bytes([
-            self.bytes[4],
-            self.bytes[5],
-            self.bytes[6],
-            self.bytes[7],
-        ])
+        u32::from_be_bytes([self.bytes[4], self.bytes[5], self.bytes[6], self.bytes[7]])
     }
 }
 

@@ -1,6 +1,6 @@
-use crate::{PacketError, PacketView, PacketViewMut};
-use crate::view::PacketSpec;
 use crate::checksum;
+use crate::view::PacketSpec;
+use crate::{PacketError, PacketView, PacketViewMut};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Udp {}
@@ -10,7 +10,7 @@ impl Udp {
 }
 
 impl PacketSpec for Udp {
-        fn validate(bytes: &[u8]) -> Result<(), PacketError> {
+    fn validate(bytes: &[u8]) -> Result<(), PacketError> {
         if bytes.len() < Self::HEADER_LEN {
             return Err(PacketError::TooShort {
                 needed: Self::HEADER_LEN,
@@ -62,10 +62,7 @@ pub trait UdpPacket {
     }
 
     fn payload(&self) -> &[u8] {
-        let end = core::cmp::min(
-            self.length() as usize,
-            self.bytes().len(),
-        );
+        let end = core::cmp::min(self.length() as usize, self.bytes().len());
         &self.bytes()[Udp::HEADER_LEN..end]
     }
 }
@@ -107,11 +104,7 @@ fn udp_len_from_header(udp_bytes: &[u8]) -> usize {
     u16::from_be_bytes([udp_bytes[4], udp_bytes[5]]) as usize
 }
 
-pub fn udp_checksum_ipv4(
-    src: [u8; 4],
-    dst: [u8; 4],
-    udp_bytes: &[u8],
-) -> u16 {
+pub fn udp_checksum_ipv4(src: [u8; 4], dst: [u8; 4], udp_bytes: &[u8]) -> u16 {
     let udp_len = udp_len_from_header(udp_bytes);
 
     let mut pseudo = [0u8; 12];
@@ -125,11 +118,7 @@ pub fn udp_checksum_ipv4(
     checksum::transport_checksum_with_pseudo_header(&pseudo, udp_bytes, UDP_CHECKSUM_OFFSET)
 }
 
-pub fn udp_checksum_ipv6(
-    src: [u8; 16],
-    dst: [u8; 16],
-    udp_bytes: &[u8],
-) -> u16 {
+pub fn udp_checksum_ipv6(src: [u8; 16], dst: [u8; 16], udp_bytes: &[u8]) -> u16 {
     let udp_len = udp_len_from_header(udp_bytes);
 
     let mut pseudo = [0u8; 40];
@@ -142,7 +131,6 @@ pub fn udp_checksum_ipv6(
 
     checksum::transport_checksum_with_pseudo_header(&pseudo, udp_bytes, UDP_CHECKSUM_OFFSET)
 }
-
 
 impl<'a> PacketView<'a, Udp> {
     /// Verifies UDP checksum over an IPv4 pseudo-header.
@@ -215,7 +203,7 @@ mod tests {
     // =========================================================
 
     const UDP_SRC_PORT: u16 = 12345;
-    const UDP_DST_PORT: u16 = 53;     // DNS
+    const UDP_DST_PORT: u16 = 53; // DNS
     const UDP_PAYLOAD: [u8; 4] = [0xde, 0xad, 0xbe, 0xef];
     const UDP_LENGTH: u16 = (Udp::HEADER_LEN + UDP_PAYLOAD.len()) as u16; // 12
 
@@ -224,14 +212,8 @@ mod tests {
     const IPV4_DST: [u8; 4] = [8, 8, 8, 8];
 
     // IPv6 addresses for pseudo-header
-    const IPV6_SRC: [u8; 16] = [
-        0x20, 0x01, 0x0d, 0xb8, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 1,
-    ];
-    const IPV6_DST: [u8; 16] = [
-        0x20, 0x01, 0x0d, 0xb8, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 2,
-    ];
+    const IPV6_SRC: [u8; 16] = [0x20, 0x01, 0x0d, 0xb8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1];
+    const IPV6_DST: [u8; 16] = [0x20, 0x01, 0x0d, 0xb8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2];
 
     // Build a raw UDP datagram with a given checksum value.
     // Payload is always UDP_PAYLOAD.
@@ -239,13 +221,20 @@ mod tests {
         let src = UDP_SRC_PORT.to_be_bytes();
         let dst = UDP_DST_PORT.to_be_bytes();
         let len = UDP_LENGTH.to_be_bytes();
-        let ck  = checksum.to_be_bytes();
+        let ck = checksum.to_be_bytes();
         [
-            src[0], src[1],
-            dst[0], dst[1],
-            len[0], len[1],
-            ck[0],  ck[1],
-            UDP_PAYLOAD[0], UDP_PAYLOAD[1], UDP_PAYLOAD[2], UDP_PAYLOAD[3],
+            src[0],
+            src[1],
+            dst[0],
+            dst[1],
+            len[0],
+            len[1],
+            ck[0],
+            ck[1],
+            UDP_PAYLOAD[0],
+            UDP_PAYLOAD[1],
+            UDP_PAYLOAD[2],
+            UDP_PAYLOAD[3],
         ]
     }
 
@@ -295,10 +284,10 @@ mod tests {
     fn payload_is_empty_for_header_only_datagram() {
         // length = 8 → no payload
         let bytes = [
-            0x30, 0x39,  // src port
-            0x00, 0x35,  // dst port
-            0x00, 0x08,  // length = 8 (header only)
-            0x00, 0x00,  // checksum
+            0x30, 0x39, // src port
+            0x00, 0x35, // dst port
+            0x00, 0x08, // length = 8 (header only)
+            0x00, 0x00, // checksum
         ];
         let header = UdpHeader::new(&bytes).unwrap();
         assert_eq!(header.payload(), &[]);

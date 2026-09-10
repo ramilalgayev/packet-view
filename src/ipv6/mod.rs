@@ -1,17 +1,11 @@
-use crate::{PacketError, PacketView, PacketViewMut};
 use crate::view::PacketSpec;
+use crate::{PacketError, PacketView, PacketViewMut};
 
 pub mod ext_headers;
 
-use ext_headers::{HDR_EXT_LEN};
+use ext_headers::HDR_EXT_LEN;
 
-pub use ext_headers::{
-    FragmentHeader,
-    NextHeader,
-    NextHeaderData,
-    NextHeaderType,
-    NextHeaders,
-};
+pub use ext_headers::{FragmentHeader, NextHeader, NextHeaderData, NextHeaderType, NextHeaders};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Ipv6 {}
@@ -82,7 +76,11 @@ pub trait Ipv6Packet {
 
     fn fragment_header(&self) -> Option<FragmentHeader<'_>> {
         for ext in self.extension_headers() {
-            if let Ok(NextHeader { data: NextHeaderData::Fragment(frag), .. }) = ext {
+            if let Ok(NextHeader {
+                data: NextHeaderData::Fragment(frag),
+                ..
+            }) = ext
+            {
                 return Some(frag);
             }
         }
@@ -102,15 +100,19 @@ pub trait Ipv6Packet {
             if !kind.is_extension() {
                 return Some(next);
             }
-            if remaining.len() < 8 { return None; }
-            
+            if remaining.len() < 8 {
+                return None;
+            }
+
             let len = if matches!(kind, NextHeaderType::FragmentHeader) {
                 HDR_EXT_LEN
             } else {
                 (remaining[1] as usize + 1) * 8
             };
 
-            if remaining.len() < len { return None; }
+            if remaining.len() < len {
+                return None;
+            }
             next = remaining[0];
             remaining = &remaining[len..];
         }
@@ -213,34 +215,50 @@ mod tests {
     const IPV6_PAYLOAD_LEN: [u8; 2] = 0u16.to_be_bytes();
     const IPV6_NEXT_HEADER_UDP: u8 = 17;
     const IPV6_HOP_LIMIT: u8 = 64;
-    const IPV6_SRC: [u8; 16] = [
-        0x20, 0x01, 0x0d, 0xb8,
-        0, 0, 0, 0,
-        0, 0, 0, 0,
-        0, 0, 0, 1,
-    ];
-    const IPV6_DST: [u8; 16] = [
-        0x20, 0x01, 0x0d, 0xb8,
-        0, 0, 0, 0,
-        0, 0, 0, 0,
-        0, 0, 0, 2,
-    ];
+    const IPV6_SRC: [u8; 16] = [0x20, 0x01, 0x0d, 0xb8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1];
+    const IPV6_DST: [u8; 16] = [0x20, 0x01, 0x0d, 0xb8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2];
 
     const IPV6_HEADER: [u8; IPV6_MIN_PACKET_LEN] = [
         IPV6_VERSION_TRAFFIC_CLASS_HIGH,
         IPV6_TRAFFIC_CLASS_LOW_FLOW_HIGH,
-        IPV6_FLOW_LABEL_LOW[0], IPV6_FLOW_LABEL_LOW[1],
-        IPV6_PAYLOAD_LEN[0], IPV6_PAYLOAD_LEN[1],
+        IPV6_FLOW_LABEL_LOW[0],
+        IPV6_FLOW_LABEL_LOW[1],
+        IPV6_PAYLOAD_LEN[0],
+        IPV6_PAYLOAD_LEN[1],
         IPV6_NEXT_HEADER_UDP,
         IPV6_HOP_LIMIT,
-        IPV6_SRC[0],  IPV6_SRC[1],  IPV6_SRC[2],  IPV6_SRC[3],
-        IPV6_SRC[4],  IPV6_SRC[5],  IPV6_SRC[6],  IPV6_SRC[7],
-        IPV6_SRC[8],  IPV6_SRC[9],  IPV6_SRC[10], IPV6_SRC[11],
-        IPV6_SRC[12], IPV6_SRC[13], IPV6_SRC[14], IPV6_SRC[15],
-        IPV6_DST[0],  IPV6_DST[1],  IPV6_DST[2],  IPV6_DST[3],
-        IPV6_DST[4],  IPV6_DST[5],  IPV6_DST[6],  IPV6_DST[7],
-        IPV6_DST[8],  IPV6_DST[9],  IPV6_DST[10], IPV6_DST[11],
-        IPV6_DST[12], IPV6_DST[13], IPV6_DST[14], IPV6_DST[15],
+        IPV6_SRC[0],
+        IPV6_SRC[1],
+        IPV6_SRC[2],
+        IPV6_SRC[3],
+        IPV6_SRC[4],
+        IPV6_SRC[5],
+        IPV6_SRC[6],
+        IPV6_SRC[7],
+        IPV6_SRC[8],
+        IPV6_SRC[9],
+        IPV6_SRC[10],
+        IPV6_SRC[11],
+        IPV6_SRC[12],
+        IPV6_SRC[13],
+        IPV6_SRC[14],
+        IPV6_SRC[15],
+        IPV6_DST[0],
+        IPV6_DST[1],
+        IPV6_DST[2],
+        IPV6_DST[3],
+        IPV6_DST[4],
+        IPV6_DST[5],
+        IPV6_DST[6],
+        IPV6_DST[7],
+        IPV6_DST[8],
+        IPV6_DST[9],
+        IPV6_DST[10],
+        IPV6_DST[11],
+        IPV6_DST[12],
+        IPV6_DST[13],
+        IPV6_DST[14],
+        IPV6_DST[15],
     ];
 
     // HopByHop (type 0), 8 bytes, next = UDP (17), hdr_ext_len = 0
@@ -342,7 +360,8 @@ mod tests {
         let packet = build_ipv6_packet(0, &HOP_BY_HOP_EXT, &[]);
         let header = Ipv6Header::new(&packet).unwrap();
 
-        let exts: Vec<_> = header.extension_headers()
+        let exts: Vec<_> = header
+            .extension_headers()
             .collect::<Result<Vec<_>, _>>()
             .unwrap();
 
@@ -365,7 +384,8 @@ mod tests {
         let packet = build_ipv6_packet(0, &ext_bytes, &[]);
         let header = Ipv6Header::new(&packet).unwrap();
 
-        let exts: Vec<_> = header.extension_headers()
+        let exts: Vec<_> = header
+            .extension_headers()
             .collect::<Result<Vec<_>, _>>()
             .unwrap();
 
@@ -435,7 +455,8 @@ mod tests {
         let packet = build_ipv6_packet(44, &FRAGMENT_EXT_MORE, &[]);
         let header = Ipv6Header::new(&packet).unwrap();
 
-        let exts: Vec<_> = header.extension_headers()
+        let exts: Vec<_> = header
+            .extension_headers()
             .collect::<Result<Vec<_>, _>>()
             .unwrap();
 
@@ -474,7 +495,10 @@ mod tests {
         let result: Result<Vec<_>, _> = header.extension_headers().collect();
         assert_eq!(
             result,
-            Err(PacketError::TooShort { needed: 8, actual: 4 })
+            Err(PacketError::TooShort {
+                needed: 8,
+                actual: 4
+            })
         );
     }
 
@@ -490,7 +514,10 @@ mod tests {
         let result: Result<Vec<_>, _> = header.extension_headers().collect();
         assert_eq!(
             result,
-            Err(PacketError::TooShort { needed: 48, actual: 8 })
+            Err(PacketError::TooShort {
+                needed: 48,
+                actual: 8
+            })
         );
     }
 
@@ -502,7 +529,7 @@ mod tests {
 
         let mut iter = header.extension_headers();
         assert!(iter.next().unwrap().is_err()); // first → error
-        assert!(iter.next().is_none());          // second → stopped
+        assert!(iter.next().is_none()); // second → stopped
     }
 
     #[test]
@@ -512,7 +539,10 @@ mod tests {
 
         assert_eq!(
             Ipv6Header::new_checked(&packet),
-            Err(PacketError::TooShort { needed: 8, actual: 4 })
+            Err(PacketError::TooShort {
+                needed: 8,
+                actual: 4
+            })
         );
     }
 
@@ -525,7 +555,8 @@ mod tests {
         let packet = build_ipv6_packet(0, &hop, &[]);
         let header = Ipv6Header::new(&packet).unwrap();
 
-        let exts: Vec<_> = header.extension_headers()
+        let exts: Vec<_> = header
+            .extension_headers()
             .collect::<Result<Vec<_>, _>>()
             .unwrap();
 

@@ -2,9 +2,9 @@
 fn sum_words(bytes: &[u8]) -> u32 {
     let (words, rem) = bytes.as_chunks::<2>();
 
-    let mut sum = words.iter().fold(0u32, |acc, word| {
-        acc + u16::from_be_bytes(*word) as u32
-    });
+    let mut sum = words
+        .iter()
+        .fold(0u32, |acc, word| acc + u16::from_be_bytes(*word) as u32);
 
     if let [last] = rem {
         sum += (*last as u32) << 8;
@@ -13,10 +13,7 @@ fn sum_words(bytes: &[u8]) -> u32 {
     sum
 }
 
-pub fn ones_complement_sum(
-    bytes: &[u8],
-    checksum_offset: Option<usize>,
-) -> u16 {
+pub fn ones_complement_sum(bytes: &[u8], checksum_offset: Option<usize>) -> u16 {
     debug_assert!(
         checksum_offset
             .map(|offset| offset + 1 < bytes.len() && offset % 2 == 0)
@@ -24,10 +21,7 @@ pub fn ones_complement_sum(
     );
 
     let sum = match checksum_offset {
-        Some(offset) => {
-            sum_words(&bytes[..offset])
-                + sum_words(&bytes[offset + 2..])
-        }
+        Some(offset) => sum_words(&bytes[..offset]) + sum_words(&bytes[offset + 2..]),
         None => sum_words(bytes),
     };
 

@@ -1,4 +1,4 @@
-pub(super) const NS:  u16 = 0b1_0000_0000;
+pub(super) const NS: u16 = 0b1_0000_0000;
 pub(super) const CWR: u16 = 0b0_1000_0000;
 pub(super) const ECE: u16 = 0b0_0100_0000;
 pub(super) const URG: u16 = 0b0_0010_0000;

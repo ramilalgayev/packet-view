@@ -1,5 +1,5 @@
-use core::marker::PhantomData;
 use crate::PacketError;
+use core::marker::PhantomData;
 
 pub trait PacketSpec {
     fn validate(bytes: &[u8]) -> Result<(), PacketError>;
@@ -45,11 +45,11 @@ impl<'a, P: PacketSpec> PacketViewMut<'a, P> {
         })
     }
 
-    pub fn as_slice(&self) -> & [u8] {
+    pub fn as_slice(&self) -> &[u8] {
         self.bytes
     }
 
-    pub fn as_slice_mut(&mut self) -> & mut [u8] {
+    pub fn as_slice_mut(&mut self) -> &mut [u8] {
         self.bytes
     }
 

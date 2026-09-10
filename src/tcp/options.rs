@@ -5,13 +5,13 @@ use crate::PacketError;
 /// Known TCP option kinds per IANA registry.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TcpOptionKind {
-    Eol,                // 0  — end of options list
-    Nop,                // 1  — no-operation padding
-    Mss,                // 2  — maximum segment size
-    WindowScale,        // 3  — window scaling factor
-    SackPermitted,      // 4  — selective ack permitted
-    Sack,               // 5  — selective ack block
-    Timestamp,          // 8  — timestamp + echo
+    Eol,           // 0  — end of options list
+    Nop,           // 1  — no-operation padding
+    Mss,           // 2  — maximum segment size
+    WindowScale,   // 3  — window scaling factor
+    SackPermitted, // 4  — selective ack permitted
+    Sack,          // 5  — selective ack block
+    Timestamp,     // 8  — timestamp + echo
     Unknown(u8),
 }
 
@@ -60,12 +60,8 @@ impl<'a> TcpOption<'a> {
     /// For Timestamp option (kind=8, length=10): returns (ts_val, ts_ecr).
     pub fn timestamp(&self) -> Option<(u32, u32)> {
         if self.kind == TcpOptionKind::Timestamp && self.data.len() == 8 {
-            let val = u32::from_be_bytes([
-                self.data[0], self.data[1], self.data[2], self.data[3],
-            ]);
-            let ecr = u32::from_be_bytes([
-                self.data[4], self.data[5], self.data[6], self.data[7],
-            ]);
+            let val = u32::from_be_bytes([self.data[0], self.data[1], self.data[2], self.data[3]]);
+            let ecr = u32::from_be_bytes([self.data[4], self.data[5], self.data[6], self.data[7]]);
             Some((val, ecr))
         } else {
             None

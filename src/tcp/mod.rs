@@ -4,16 +4,14 @@ pub mod flags;
 pub mod options;
 pub mod seq;
 
-use crate::{PacketError, PacketView, PacketViewMut};
-use crate::view::PacketSpec;
 use crate::checksum;
+use crate::view::PacketSpec;
+use crate::{PacketError, PacketView, PacketViewMut};
 use flags::*;
 use options::TcpOptions;
 
 pub use seq::{
-    wrapping_after, wrapping_after_or_eq,
-    wrapping_before, wrapping_before_or_eq,
-    wrapping_distance,
+    wrapping_after, wrapping_after_or_eq, wrapping_before, wrapping_before_or_eq, wrapping_distance,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -49,7 +47,10 @@ impl PacketSpec for Tcp {
     }
 
     fn header_len(bytes: &[u8]) -> usize {
-        debug_assert!(bytes.len() > Tcp::MIN_HEADER_LEN, "header_len called on too small slice");
+        debug_assert!(
+            bytes.len() > Tcp::MIN_HEADER_LEN,
+            "header_len called on too small slice"
+        );
         (bytes[12] >> 4) as usize * 4
     }
 }
@@ -67,15 +68,19 @@ pub trait TcpPacket {
 
     fn seq_number(&self) -> u32 {
         u32::from_be_bytes([
-            self.bytes()[4], self.bytes()[5],
-            self.bytes()[6], self.bytes()[7],
+            self.bytes()[4],
+            self.bytes()[5],
+            self.bytes()[6],
+            self.bytes()[7],
         ])
     }
 
     fn ack_number(&self) -> u32 {
         u32::from_be_bytes([
-            self.bytes()[8],  self.bytes()[9],
-            self.bytes()[10], self.bytes()[11],
+            self.bytes()[8],
+            self.bytes()[9],
+            self.bytes()[10],
+            self.bytes()[11],
         ])
     }
 
@@ -89,19 +94,37 @@ pub trait TcpPacket {
 
     fn flags_raw(&self) -> u16 {
         let high = (self.bytes()[12] & 0x01) as u16; // NS bit
-        let low  =  self.bytes()[13] as u16;
+        let low = self.bytes()[13] as u16;
         (high << 8) | low
     }
 
-    fn is_ns(&self)  -> bool { self.flags_raw() & NS  != 0 }
-    fn is_cwr(&self) -> bool { self.flags_raw() & CWR != 0 }
-    fn is_ece(&self) -> bool { self.flags_raw() & ECE != 0 }
-    fn is_urg(&self) -> bool { self.flags_raw() & URG != 0 }
-    fn is_ack(&self) -> bool { self.flags_raw() & ACK != 0 }
-    fn is_psh(&self) -> bool { self.flags_raw() & PSH != 0 }
-    fn is_rst(&self) -> bool { self.flags_raw() & RST != 0 }
-    fn is_syn(&self) -> bool { self.flags_raw() & SYN != 0 }
-    fn is_fin(&self) -> bool { self.flags_raw() & FIN != 0 }
+    fn is_ns(&self) -> bool {
+        self.flags_raw() & NS != 0
+    }
+    fn is_cwr(&self) -> bool {
+        self.flags_raw() & CWR != 0
+    }
+    fn is_ece(&self) -> bool {
+        self.flags_raw() & ECE != 0
+    }
+    fn is_urg(&self) -> bool {
+        self.flags_raw() & URG != 0
+    }
+    fn is_ack(&self) -> bool {
+        self.flags_raw() & ACK != 0
+    }
+    fn is_psh(&self) -> bool {
+        self.flags_raw() & PSH != 0
+    }
+    fn is_rst(&self) -> bool {
+        self.flags_raw() & RST != 0
+    }
+    fn is_syn(&self) -> bool {
+        self.flags_raw() & SYN != 0
+    }
+    fn is_fin(&self) -> bool {
+        self.flags_raw() & FIN != 0
+    }
 
     fn window_size(&self) -> u16 {
         u16::from_be_bytes([self.bytes()[14], self.bytes()[15]])
@@ -133,11 +156,15 @@ pub trait TcpPacket {
 }
 
 impl<'a> TcpPacket for PacketView<'a, Tcp> {
-    fn bytes(&self) -> &[u8] { self.as_slice() }
+    fn bytes(&self) -> &[u8] {
+        self.as_slice()
+    }
 }
 
 impl<'a> TcpPacket for PacketViewMut<'a, Tcp> {
-    fn bytes(&self) -> &[u8] { self.as_slice() }
+    fn bytes(&self) -> &[u8] {
+        self.as_slice()
+    }
 }
 
 // ── setters ──────────────────────────────────────────────────
@@ -169,8 +196,7 @@ impl<'a> PacketViewMut<'a, Tcp> {
 
     pub fn set_data_offset(&mut self, value: u8) {
         debug_assert!(value >= 5);
-        self.as_slice_mut()[12] =
-            (value << 4) | (self.as_slice()[12] & 0x0f);
+        self.as_slice_mut()[12] = (value << 4) | (self.as_slice()[12] & 0x0f);
     }
 
     pub fn set_window_size(&mut self, value: u16) {
@@ -189,11 +215,7 @@ impl<'a> PacketViewMut<'a, Tcp> {
 const TCP_PROTOCOL: u8 = 6;
 const TCP_CHECKSUM_OFFSET: usize = 16;
 
-pub fn tcp_checksum_ipv4(
-    src: [u8; 4],
-    dst: [u8; 4],
-    tcp_bytes: &[u8],
-) -> u16 {
+pub fn tcp_checksum_ipv4(src: [u8; 4], dst: [u8; 4], tcp_bytes: &[u8]) -> u16 {
     let tcp_len = tcp_bytes.len() as u16;
 
     let mut pseudo = [0u8; 12];
@@ -207,11 +229,7 @@ pub fn tcp_checksum_ipv4(
     checksum::transport_checksum_with_pseudo_header(&pseudo, tcp_bytes, TCP_CHECKSUM_OFFSET)
 }
 
-pub fn tcp_checksum_ipv6(
-    src: [u8; 16],
-    dst: [u8; 16],
-    tcp_bytes: &[u8],
-) -> u16 {
+pub fn tcp_checksum_ipv6(src: [u8; 16], dst: [u8; 16], tcp_bytes: &[u8]) -> u16 {
     let tcp_len = tcp_bytes.len() as u32;
 
     let mut pseudo = [0u8; 40];
@@ -286,48 +304,53 @@ mod tests {
 
     const TCP_SRC_PORT: u16 = 12345;
     const TCP_DST_PORT: u16 = 80;
-    const _TCP_SEQ:      u32 = 0xdeadbeef;
-    const TCP_ACK:      u32 = 0xcafebabe;
-    const TCP_WINDOW:   u16 = 65535;
+    const _TCP_SEQ: u32 = 0xdeadbeef;
+    const TCP_ACK: u32 = 0xcafebabe;
+    const TCP_WINDOW: u16 = 65535;
 
     // IPv4 addresses
     const IPV4_SRC: [u8; 4] = [192, 168, 1, 10];
     const IPV4_DST: [u8; 4] = [93, 184, 216, 34];
 
     // IPv6 addresses
-    const IPV6_SRC: [u8; 16] = [
-        0x20, 0x01, 0x0d, 0xb8, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 1,
-    ];
-    const IPV6_DST: [u8; 16] = [
-        0x20, 0x01, 0x0d, 0xb8, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 2,
-    ];
+    const IPV6_SRC: [u8; 16] = [0x20, 0x01, 0x0d, 0xb8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1];
+    const IPV6_DST: [u8; 16] = [0x20, 0x01, 0x0d, 0xb8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2];
 
     // Builds a minimal 20-byte TCP header with given flags and checksum.
     // data_offset = 5 (no options), payload appended separately.
     fn build_tcp(flags: u16, checksum: u16) -> [u8; 20] {
-        let src  = TCP_SRC_PORT.to_be_bytes();
-        let dst  = TCP_DST_PORT.to_be_bytes();
-        let seq  = TCP_ACK.to_be_bytes();
-        let ack  = TCP_ACK.to_be_bytes();
-        let ck   = checksum.to_be_bytes();
-        let win  = TCP_WINDOW.to_be_bytes();
+        let src = TCP_SRC_PORT.to_be_bytes();
+        let dst = TCP_DST_PORT.to_be_bytes();
+        let seq = TCP_ACK.to_be_bytes();
+        let ack = TCP_ACK.to_be_bytes();
+        let ck = checksum.to_be_bytes();
+        let win = TCP_WINDOW.to_be_bytes();
 
         // byte 12: data_offset=5 in high nibble, NS flag in bit 0
         let offset_flags_high = (5u8 << 4) | ((flags >> 8) as u8 & 0x01);
         let flags_low = (flags & 0xff) as u8;
 
         [
-            src[0], src[1],
-            dst[0], dst[1],
-            seq[0], seq[1], seq[2], seq[3],
-            ack[0], ack[1], ack[2], ack[3],
+            src[0],
+            src[1],
+            dst[0],
+            dst[1],
+            seq[0],
+            seq[1],
+            seq[2],
+            seq[3],
+            ack[0],
+            ack[1],
+            ack[2],
+            ack[3],
             offset_flags_high,
             flags_low,
-            win[0], win[1],
-            ck[0],  ck[1],
-            0x00,   0x00,   // urgent pointer
+            win[0],
+            win[1],
+            ck[0],
+            ck[1],
+            0x00,
+            0x00, // urgent pointer
         ]
     }
 
@@ -356,7 +379,10 @@ mod tests {
     // Builds a TCP header with options region and correct IPv4 checksum.
     // options_bytes must be padded to a multiple of 4.
     fn build_tcp_with_options(options_bytes: &[u8], payload: &[u8]) -> Vec<u8> {
-        assert!(options_bytes.len() % 4 == 0, "options must be 4-byte aligned");
+        assert!(
+            options_bytes.len() % 4 == 0,
+            "options must be 4-byte aligned"
+        );
         let data_offset = (5 + options_bytes.len() / 4) as u8;
         assert!(data_offset <= 15, "options too long");
 
@@ -384,7 +410,7 @@ mod tests {
 
         assert_eq!(header.src_port(), TCP_SRC_PORT);
         assert_eq!(header.dst_port(), TCP_DST_PORT);
-        assert_eq!(header.seq_number(), TCP_ACK);  // we used TCP_ACK for seq in builder
+        assert_eq!(header.seq_number(), TCP_ACK); // we used TCP_ACK for seq in builder
         assert_eq!(header.ack_number(), TCP_ACK);
         assert_eq!(header.data_offset(), 5);
         assert_eq!(header.header_len(), 20);
@@ -425,7 +451,10 @@ mod tests {
         let bytes = &build_tcp(SYN, 0x0000)[..19];
         assert_eq!(
             TcpHeader::new(bytes),
-            Err(PacketError::TooShort { needed: 20, actual: 19 })
+            Err(PacketError::TooShort {
+                needed: 20,
+                actual: 19
+            })
         );
     }
 
@@ -459,7 +488,10 @@ mod tests {
 
         assert_eq!(
             TcpHeader::new(&bytes),
-            Err(PacketError::TooShort { needed: 60, actual: 20 })
+            Err(PacketError::TooShort {
+                needed: 60,
+                actual: 20
+            })
         );
     }
 
@@ -613,9 +645,7 @@ mod tests {
         let bytes = build_tcp_with_options(&options, &[]);
         let header = TcpHeader::new(&bytes).unwrap();
 
-        let opts: Vec<_> = header.options()
-            .collect::<Result<Vec<_>, _>>()
-            .unwrap();
+        let opts: Vec<_> = header.options().collect::<Result<Vec<_>, _>>().unwrap();
 
         assert_eq!(opts.len(), 4);
         assert!(opts.iter().all(|o| matches!(o.kind, TcpOptionKind::Nop)));
@@ -625,16 +655,11 @@ mod tests {
     fn mss_option_parsed_correctly() {
         // MSS option: kind=2, length=4, value=1460
         let mss: u16 = 1460;
-        let options = [
-            0x02, 0x04,
-            (mss >> 8) as u8, (mss & 0xff) as u8,
-        ];
+        let options = [0x02, 0x04, (mss >> 8) as u8, (mss & 0xff) as u8];
         let bytes = build_tcp_with_options(&options, &[]);
         let header = TcpHeader::new(&bytes).unwrap();
 
-        let opts: Vec<_> = header.options()
-            .collect::<Result<Vec<_>, _>>()
-            .unwrap();
+        let opts: Vec<_> = header.options().collect::<Result<Vec<_>, _>>().unwrap();
 
         assert_eq!(opts.len(), 1);
         assert_eq!(opts[0].kind, TcpOptionKind::Mss);
@@ -648,9 +673,7 @@ mod tests {
         let bytes = build_tcp_with_options(&options, &[]);
         let header = TcpHeader::new(&bytes).unwrap();
 
-        let opts: Vec<_> = header.options()
-            .collect::<Result<Vec<_>, _>>()
-            .unwrap();
+        let opts: Vec<_> = header.options().collect::<Result<Vec<_>, _>>().unwrap();
 
         assert_eq!(opts.len(), 2); // WindowScale + NOP
         assert_eq!(opts[0].window_scale(), Some(7));
@@ -664,21 +687,28 @@ mod tests {
         let ts_val: u32 = 0x12345678;
         let ts_ecr: u32 = 0xdeadbeef;
         let options = [
-            0x01, 0x01,             // 2 NOPs
-            0x08, 0x0a,             // kind=8, length=10
-            (ts_val >> 24) as u8, (ts_val >> 16) as u8,
-            (ts_val >> 8)  as u8, (ts_val)       as u8,
-            (ts_ecr >> 24) as u8, (ts_ecr >> 16) as u8,
-            (ts_ecr >> 8)  as u8, (ts_ecr)       as u8,
+            0x01,
+            0x01, // 2 NOPs
+            0x08,
+            0x0a, // kind=8, length=10
+            (ts_val >> 24) as u8,
+            (ts_val >> 16) as u8,
+            (ts_val >> 8) as u8,
+            (ts_val) as u8,
+            (ts_ecr >> 24) as u8,
+            (ts_ecr >> 16) as u8,
+            (ts_ecr >> 8) as u8,
+            (ts_ecr) as u8,
         ];
         let bytes = build_tcp_with_options(&options, &[]);
         let header = TcpHeader::new(&bytes).unwrap();
 
-        let opts: Vec<_> = header.options()
-            .collect::<Result<Vec<_>, _>>()
-            .unwrap();
+        let opts: Vec<_> = header.options().collect::<Result<Vec<_>, _>>().unwrap();
 
-        let ts = opts.iter().find(|o| matches!(o.kind, TcpOptionKind::Timestamp)).unwrap();
+        let ts = opts
+            .iter()
+            .find(|o| matches!(o.kind, TcpOptionKind::Timestamp))
+            .unwrap();
         assert_eq!(ts.timestamp(), Some((ts_val, ts_ecr)));
     }
 
@@ -689,9 +719,7 @@ mod tests {
         let bytes = build_tcp_with_options(&options, &[]);
         let header = TcpHeader::new(&bytes).unwrap();
 
-        let opts: Vec<_> = header.options()
-            .collect::<Result<Vec<_>, _>>()
-            .unwrap();
+        let opts: Vec<_> = header.options().collect::<Result<Vec<_>, _>>().unwrap();
 
         assert_eq!(opts.len(), 1);
         assert!(matches!(opts[0].kind, TcpOptionKind::Eol));
@@ -721,7 +749,10 @@ mod tests {
         let result: Result<Vec<_>, _> = header.options().collect();
         assert!(matches!(
             result,
-            Err(PacketError::TooShort { needed: 10, actual: 4 })
+            Err(PacketError::TooShort {
+                needed: 10,
+                actual: 4
+            })
         ));
     }
 
@@ -741,18 +772,16 @@ mod tests {
         // A realistic SYN options block: MSS + NOP + WindowScale + NOP + NOP + SackPermitted
         // MSS(1460) + NOP + WS(7) + NOP + NOP + SACK_OK padded to 12 bytes
         let options = [
-            0x02, 0x04, 0x05, 0xb4,  // MSS = 1460
-            0x01,                     // NOP
-            0x03, 0x03, 0x07,         // WindowScale = 7
-            0x01, 0x01,               // NOP NOP
-            0x04, 0x02,               // SackPermitted
+            0x02, 0x04, 0x05, 0xb4, // MSS = 1460
+            0x01, // NOP
+            0x03, 0x03, 0x07, // WindowScale = 7
+            0x01, 0x01, // NOP NOP
+            0x04, 0x02, // SackPermitted
         ];
         let bytes = build_tcp_with_options(&options, &[]);
         let header = TcpHeader::new(&bytes).unwrap();
 
-        let opts: Vec<_> = header.options()
-            .collect::<Result<Vec<_>, _>>()
-            .unwrap();
+        let opts: Vec<_> = header.options().collect::<Result<Vec<_>, _>>().unwrap();
 
         assert_eq!(opts.len(), 6);
         assert_eq!(opts[0].mss(), Some(1460));

@@ -1,6 +1,6 @@
-use crate::{PacketError, PacketView, PacketViewMut};
-use crate::view::PacketSpec;
 use crate::checksum;
+use crate::view::PacketSpec;
+use crate::{PacketError, PacketView, PacketViewMut};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Ipv4 {}
@@ -113,11 +113,21 @@ pub trait Ipv4Packet {
     }
 
     fn src(&self) -> [u8; 4] {
-        [self.bytes()[12], self.bytes()[13], self.bytes()[14], self.bytes()[15]]
+        [
+            self.bytes()[12],
+            self.bytes()[13],
+            self.bytes()[14],
+            self.bytes()[15],
+        ]
     }
 
     fn dst(&self) -> [u8; 4] {
-        [self.bytes()[16], self.bytes()[17], self.bytes()[18], self.bytes()[19]]
+        [
+            self.bytes()[16],
+            self.bytes()[17],
+            self.bytes()[18],
+            self.bytes()[19],
+        ]
     }
 
     fn options(&self) -> &[u8] {
@@ -143,8 +153,11 @@ impl<'a> PacketView<'a, Ipv4> {
                 let mut sum = 0u32;
                 let mut i = 0;
                 while i + 1 < h.len() {
-                    let word = if i == 10 { 0u16 }
-                               else { u16::from_be_bytes([h[i], h[i + 1]]) };
+                    let word = if i == 10 {
+                        0u16
+                    } else {
+                        u16::from_be_bytes([h[i], h[i + 1]])
+                    };
                     sum += word as u32;
                     i += 2;
                 }
@@ -222,28 +235,31 @@ mod tests {
     const IPV4_DST: [u8; 4] = [8, 8, 8, 8];
     const IPV4_VALID_CHECKSUM: u16 = 0x56e3;
     const IPV4_HEADER_VALID_CHECKSUM: [u8; 20] = [
-        0x45, 0x00,
-        0x00, 0x14,
-        0x12, 0x34,
-        0x40, 0x00,
-        0x40,
-        0x11,
-        0x56, 0xe3,
-        192, 168, 1, 10,
-        8, 8, 8, 8,
+        0x45, 0x00, 0x00, 0x14, 0x12, 0x34, 0x40, 0x00, 0x40, 0x11, 0x56, 0xe3, 192, 168, 1, 10, 8,
+        8, 8, 8,
     ];
 
     const IPV4_HEADER: [u8; IPV4_MIN_PACKET_LEN] = [
         IPV4_VERSION_IHL,
         IPV4_DSCP_ECN,
-        IPV4_TOTAL_LEN[0], IPV4_TOTAL_LEN[1],
-        IPV4_IDENTIFICATION[0], IPV4_IDENTIFICATION[1],
-        IPV4_FLAGS_FRAGMENT_OFFSET[0], IPV4_FLAGS_FRAGMENT_OFFSET[1],
+        IPV4_TOTAL_LEN[0],
+        IPV4_TOTAL_LEN[1],
+        IPV4_IDENTIFICATION[0],
+        IPV4_IDENTIFICATION[1],
+        IPV4_FLAGS_FRAGMENT_OFFSET[0],
+        IPV4_FLAGS_FRAGMENT_OFFSET[1],
         IPV4_TTL,
         IPV4_PROTOCOL_UDP,
-        IPV4_CHECKSUM[0], IPV4_CHECKSUM[1],
-        IPV4_SRC[0], IPV4_SRC[1], IPV4_SRC[2], IPV4_SRC[3],
-        IPV4_DST[0], IPV4_DST[1], IPV4_DST[2], IPV4_DST[3],
+        IPV4_CHECKSUM[0],
+        IPV4_CHECKSUM[1],
+        IPV4_SRC[0],
+        IPV4_SRC[1],
+        IPV4_SRC[2],
+        IPV4_SRC[3],
+        IPV4_DST[0],
+        IPV4_DST[1],
+        IPV4_DST[2],
+        IPV4_DST[3],
     ];
 
     #[test]
@@ -334,17 +350,17 @@ mod tests {
     }
 
     #[test]
-fn new_verified_accepts_valid_checksum() {
-    let header = Ipv4Header::new_verified(&IPV4_HEADER_VALID_CHECKSUM).unwrap();
-    assert_eq!(header.checksum(), IPV4_VALID_CHECKSUM);
-}
+    fn new_verified_accepts_valid_checksum() {
+        let header = Ipv4Header::new_verified(&IPV4_HEADER_VALID_CHECKSUM).unwrap();
+        assert_eq!(header.checksum(), IPV4_VALID_CHECKSUM);
+    }
 
     #[test]
     fn new_verified_rejects_invalid_checksum() {
         let mut bytes = IPV4_HEADER_VALID_CHECKSUM;
         bytes[10] = 0xde;
         bytes[11] = 0xad;
-    
+
         assert_eq!(
             Ipv4Header::new_verified(&bytes),
             Err(PacketError::InvalidChecksum {
