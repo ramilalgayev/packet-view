@@ -380,7 +380,7 @@ mod tests {
     // options_bytes must be padded to a multiple of 4.
     fn build_tcp_with_options(options_bytes: &[u8], payload: &[u8]) -> Vec<u8> {
         assert!(
-            options_bytes.len() % 4 == 0,
+            options_bytes.len().is_multiple_of(4),
             "options must be 4-byte aligned"
         );
         let data_offset = (5 + options_bytes.len() / 4) as u8;
@@ -472,7 +472,7 @@ mod tests {
     #[test]
     fn rejects_data_offset_zero() {
         let mut bytes = build_tcp(SYN, 0x0000);
-        bytes[12] = bytes[12] & 0x01; // data_offset = 0
+        bytes[12] &= 0x01; // data_offset = 0
 
         assert_eq!(
             TcpHeader::new(&bytes),
@@ -835,9 +835,10 @@ mod tests {
         bytes[16] = 0xde; // corrupt
         bytes[17] = 0xad;
 
-        let mut header = TcpHeaderMut::new(&mut bytes).unwrap();
-        header.compute_and_set_checksum_ipv4(IPV4_SRC, IPV4_DST);
-        drop(header);
+        {
+            let mut header = TcpHeaderMut::new(&mut bytes).unwrap();
+            header.compute_and_set_checksum_ipv4(IPV4_SRC, IPV4_DST);
+        }
 
         assert!(TcpHeader::new_verified_ipv4(&bytes, IPV4_SRC, IPV4_DST).is_ok());
     }
@@ -845,12 +846,14 @@ mod tests {
     #[test]
     fn compute_and_set_checksum_ipv4_round_trips_after_mutation() {
         let mut bytes = build_tcp_ipv4(SYN, &[]);
-        let mut header = TcpHeaderMut::new(&mut bytes).unwrap();
 
-        header.set_seq_number(0xaaaaaaaa);
-        header.set_window_size(4096);
-        header.compute_and_set_checksum_ipv4(IPV4_SRC, IPV4_DST);
-        drop(header);
+        {
+            let mut header = TcpHeaderMut::new(&mut bytes).unwrap();
+
+            header.set_seq_number(0xaaaaaaaa);
+            header.set_window_size(4096);
+            header.compute_and_set_checksum_ipv4(IPV4_SRC, IPV4_DST);
+        }
 
         assert!(TcpHeader::new_verified_ipv4(&bytes, IPV4_SRC, IPV4_DST).is_ok());
     }
@@ -889,9 +892,10 @@ mod tests {
         bytes[16] = 0xde;
         bytes[17] = 0xad;
 
-        let mut header = TcpHeaderMut::new(&mut bytes).unwrap();
-        header.compute_and_set_checksum_ipv6(IPV6_SRC, IPV6_DST);
-        drop(header);
+        {
+            let mut header = TcpHeaderMut::new(&mut bytes).unwrap();
+            header.compute_and_set_checksum_ipv6(IPV6_SRC, IPV6_DST);
+        }
 
         assert!(TcpHeader::new_verified_ipv6(&bytes, IPV6_SRC, IPV6_DST).is_ok());
     }

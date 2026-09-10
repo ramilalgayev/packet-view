@@ -414,9 +414,11 @@ mod tests {
     #[test]
     fn compute_and_set_checksum_ipv4_round_trips() {
         let mut bytes = build_udp(0xdead); // start with garbage checksum
-        let mut header = UdpHeaderMut::new(&mut bytes).unwrap();
-        header.compute_and_set_checksum_ipv4(IPV4_SRC, IPV4_DST);
-        drop(header);
+
+        {
+            let mut header = UdpHeaderMut::new(&mut bytes).unwrap();
+            header.compute_and_set_checksum_ipv4(IPV4_SRC, IPV4_DST);
+        }
 
         assert!(UdpHeader::new_verified_ipv4(&bytes, IPV4_SRC, IPV4_DST).is_ok());
     }
@@ -424,12 +426,13 @@ mod tests {
     #[test]
     fn compute_and_set_checksum_ipv4_round_trips_after_mutation() {
         let mut bytes = build_udp_valid_ipv4();
-        let mut header = UdpHeaderMut::new(&mut bytes).unwrap();
+        {
+            let mut header = UdpHeaderMut::new(&mut bytes).unwrap();
 
-        header.set_src_port(9999);
-        header.set_dst_port(80);
-        header.compute_and_set_checksum_ipv4(IPV4_SRC, IPV4_DST);
-        drop(header);
+            header.set_src_port(9999);
+            header.set_dst_port(80);
+            header.compute_and_set_checksum_ipv4(IPV4_SRC, IPV4_DST);
+        }
 
         assert!(UdpHeader::new_verified_ipv4(&bytes, IPV4_SRC, IPV4_DST).is_ok());
     }
@@ -480,9 +483,10 @@ mod tests {
     #[test]
     fn compute_and_set_checksum_ipv6_round_trips() {
         let mut bytes = build_udp(0xdead);
-        let mut header = UdpHeaderMut::new(&mut bytes).unwrap();
-        header.compute_and_set_checksum_ipv6(IPV6_SRC, IPV6_DST);
-        drop(header);
+        {
+            let mut header = UdpHeaderMut::new(&mut bytes).unwrap();
+            header.compute_and_set_checksum_ipv6(IPV6_SRC, IPV6_DST);
+        }
 
         assert!(UdpHeader::new_verified_ipv6(&bytes, IPV6_SRC, IPV6_DST).is_ok());
     }
@@ -490,12 +494,13 @@ mod tests {
     #[test]
     fn compute_and_set_checksum_ipv6_round_trips_after_mutation() {
         let mut bytes = build_udp_valid_ipv6();
-        let mut header = UdpHeaderMut::new(&mut bytes).unwrap();
+        {
+            let mut header = UdpHeaderMut::new(&mut bytes).unwrap();
 
-        header.set_src_port(4444);
-        header.set_dst_port(443);
-        header.compute_and_set_checksum_ipv6(IPV6_SRC, IPV6_DST);
-        drop(header);
+            header.set_src_port(4444);
+            header.set_dst_port(443);
+            header.compute_and_set_checksum_ipv6(IPV6_SRC, IPV6_DST);
+        }
 
         assert!(UdpHeader::new_verified_ipv6(&bytes, IPV6_SRC, IPV6_DST).is_ok());
     }

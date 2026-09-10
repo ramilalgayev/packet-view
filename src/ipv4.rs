@@ -391,15 +391,16 @@ mod tests {
     #[test]
     fn compute_and_set_checksum_round_trips_after_mutation() {
         let mut bytes = IPV4_HEADER_VALID_CHECKSUM;
-        let mut header = Ipv4HeaderMut::new(&mut bytes).unwrap();
+        {
+            let mut header = Ipv4HeaderMut::new(&mut bytes).unwrap();
 
-        header.set_ttl(128);
-        header.set_src([10, 0, 0, 1]);
-        header.set_dst([10, 0, 0, 2]);
+            header.set_ttl(128);
+            header.set_src([10, 0, 0, 1]);
+            header.set_dst([10, 0, 0, 2]);
 
-        header.compute_and_set_checksum();
+            header.compute_and_set_checksum();
+        }
 
-        drop(header);
         assert!(Ipv4Header::new_verified(&bytes).is_ok());
     }
 }
