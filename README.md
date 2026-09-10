@@ -15,7 +15,6 @@ A safe, `no_std` Rust library for parsing and modifying network protocol headers
 - [Example](#example)
 - [API design](#api-design)
 - [Supported protocols](#supported-protocols)
-- [Safety](#safety)
 - [Error handling](#error-handling)
 - [Planned](#planned)
 - [Project status](#project-status)
@@ -76,11 +75,11 @@ fn inspect(packet: &[u8]) -> Result<(), packet_view::PacketError> {
 }
 ```
 
-> See the API documentation(planned) and [`examples/inspect_packet.rs`](examples/parse_ipv4_tcp.rs) for a current example.
+> See the API documentation(planned) and [`examples/parse_ipv4_tcp.rs`](examples/parse_ipv4_tcp.rs) for a current example.
 
 ## Example
 
-A complete working example is available in [`examples/inspect_packet.rs`](examples/parse_ipv4_tcp.rs).
+A complete working example is available in [`examples/parse_ipv4_tcp.rs`](examples/parse_ipv4_tcp.rs).
 
 It parses a real captured IPv4/TCP packet and demonstrates how `packet-view` can validate and inspect layered protocol headers without copying the packet data.
 
@@ -135,23 +134,6 @@ TCP support also includes:
 - TCP options
 - Data-offset validation
 - Sequence-number arithmetic
-
-## Safety
-
-`packet-view` is built entirely with safe Rust:
-
-```rust
-#![no_std]
-#![forbid(unsafe_code)]
-```
-
-Protocol headers are never exposed as typed views until their structural requirements have been validated.
-
-For example, the TCP parser validates the minimum header size and TCP data offset before accessing fields beyond the basic header.
-
-This makes malformed or truncated packet data return a `PacketError` rather than causing an out-of-bounds access.
-
-The library does not attempt to enforce every semantic property of a packet after a mutable view has been created. Mutable access is intentionally low-level and allows callers to modify the underlying packet bytes.
 
 ## Error handling
 
