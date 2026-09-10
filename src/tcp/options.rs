@@ -1,8 +1,5 @@
-// src/tcp/options.rs
-
 use crate::PacketError;
 
-/// Known TCP option kinds per IANA registry.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TcpOptionKind {
     Eol,           // 0  — end of options list
@@ -30,7 +27,6 @@ impl From<u8> for TcpOptionKind {
     }
 }
 
-/// A single parsed TCP option borrowing from the packet bytes.
 #[derive(Debug, Clone, Copy)]
 pub struct TcpOption<'a> {
     pub kind: TcpOptionKind,

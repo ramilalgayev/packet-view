@@ -1,4 +1,3 @@
-#[inline]
 fn sum_words(bytes: &[u8]) -> u32 {
     let (words, rem) = bytes.as_chunks::<2>();
 
@@ -28,7 +27,6 @@ pub fn ones_complement_sum(bytes: &[u8], checksum_offset: Option<usize>) -> u16 
     fold(sum)
 }
 
-#[inline]
 fn fold(mut sum: u32) -> u16 {
     sum = (sum & 0xffff) + (sum >> 16);
     sum = (sum & 0xffff) + (sum >> 16);

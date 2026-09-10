@@ -1,5 +1,3 @@
-// src/tcp/mod.rs
-
 pub mod flags;
 pub mod options;
 pub mod seq;
