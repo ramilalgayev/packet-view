@@ -76,11 +76,11 @@ fn inspect(packet: &[u8]) -> Result<(), packet_view::PacketError> {
 }
 ```
 
-> See the API documentation(planned) and [`examples/inspect_packet.rs`](examples/inspect_packet.rs) for a current example.
+> See the API documentation(planned) and [`examples/inspect_packet.rs`](examples/parse_ipv4_tcp.rs) for a current example.
 
 ## Example
 
-A complete working example is available in [`examples/inspect_packet.rs`](examples/inspect_packet.rs).
+A complete working example is available in [`examples/inspect_packet.rs`](examples/parse_ipv4_tcp.rs).
 
 It parses a real captured IPv4/TCP packet and demonstrates how `packet-view` can validate and inspect layered protocol headers without copying the packet data.
 
